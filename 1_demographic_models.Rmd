@@ -1,0 +1,42 @@
+---
+title: "Stage 1 — Demographic models"
+output: html_document
+
+params:
+  config_file: "config/madagascar.yml"
+  mode: "fit"                # reuse | fit
+  verbose: false
+
+---
+
+## Run Stage 1
+
+```{r setup, message=TRUE, warning=FALSE}
+source(file.path("R", "stage1_workflow.R"))
+rmd_options <- project_rmd_params("1_demographic_models.Rmd")
+configured <- rmd_project_config(rmd_options, "stage1")
+rmd_params <- configured$params
+demography_paths <- demography_model_paths()
+config <- stage1_config(rmd_params, demography_paths$project)
+stage1_result <- run_stage1(config, demography_paths)
+```
+
+## Summary
+
+```{r summary, echo=FALSE}
+print(stage1_result$calibration_summary)
+print(stage1_result$bird_diet_counts)
+cat(
+  "Stage 1 complete\n",
+  "Mode: ", stage1_result$action, "\n",
+  "Posterior draws per model: ", stage1_result$posterior_draws_per_model, "\n",
+  "Bird model branches: ", paste(stage1_result$bird_model_branches, collapse = ", "), "\n",
+  "Data directory: ", config$paths$data_dir, "\n",
+  "Figure directory: ", config$paths$figure_dir, "\n",
+  "Elapsed seconds: ", sprintf("%.1f", stage1_result$elapsed_seconds), "\n",
+  sep = ""
+)
+for (path in stage1_result$figure_files) {
+  if (file.exists(path)) print(knitr::include_graphics(path))
+}
+```

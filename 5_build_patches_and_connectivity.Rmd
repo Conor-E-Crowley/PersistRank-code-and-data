@@ -1,0 +1,69 @@
+---
+title: "Stage 5 — Patches and connectivity"
+output: html_document
+params:
+  config_file: "config/madagascar.yml"
+  mode: "inspect"              # inspect | resume | restart
+  verbose: false
+  clump_backend: "auto"        # auto | fasterRaster | terra
+  grass_dir: null
+---
+
+## 1. Configuration and preflight
+
+```{r setup, message=TRUE, warning=FALSE}
+source(file.path("R", "stage5_workflow.R"))
+rmd_options <- project_rmd_params("5_build_patches_and_connectivity.Rmd")
+configured <- rmd_project_config(rmd_options, "stage5")
+rmd_params <- configured$params
+context <- application_rmd_context(rmd_params)
+landcover_fingerprint <- if (!identical(rmd_params$mode, "inspect")) {
+  validate_application_rmd_spatial_inputs(context, rmd_params)
+} else NULL
+config <- stage5_application_config(
+  rmd_params, context, landcover_fingerprint = landcover_fingerprint
+)
+describe_stage5_config(config)
+```
+
+## 2. Read and select species
+
+The Stage 4 table is validated and filtered by `taxa`. This selection does not
+inspect or require Gompertz coefficient columns.
+
+## 3. Inspect recovery state or initialize spatial work
+
+`inspect` reports input, final-artifact, and checkpoint presence without
+loading spatial packages, deserializing large graphs, hashing SDMs, resolving
+the clumping backend, or reading land-cover cell values. Active modes perform
+exact compatibility validation before creating the ROI-cropped habitat masks,
+common template, and reusable cell-area raster.
+
+## 4. Process or reuse species
+
+```{r run_pipeline, message=TRUE}
+stage5_result <- run_stage5(config)
+if (!identical(config$mode, "inspect")) {
+  application_commit_boundary(
+    context, application_stage5_boundary(config, stage5_result)
+  )
+}
+```
+
+## 5. Validate and commit outputs
+
+Each successful scientific outcome is validated and committed independently to
+the recovery directory. Final rasters, lookup, connectivity, and provenance
+metadata replace the prior output set only after every selected species has a
+valid checkpoint and the assembled objects pass cross-object validation. A new
+checkpoint's validated result is reused immediately; a checkpoint loaded in a
+later session still receives full raster, lookup, and connectivity validation.
+
+## 6. Final diagnostics
+
+```{r summary, message=TRUE}
+report_stage5(stage5_result)
+if (!is.null(stage5_result$runtime_log_path)) {
+  cat("Runtime log:", stage5_result$runtime_log_path, "\n")
+}
+```

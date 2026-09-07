@@ -1,0 +1,44 @@
+---
+title: "Stage 7.2 — Benchmark patch/PU lookup library"
+output: html_document
+
+params:
+  config_file: "config/madagascar.yml"
+  mode: "inspect"             # inspect | resume | restart
+  optimization_curves: null   # null = all completed Stage 6 curves
+  rank_method: "abf"          # abf | caz1 | caz2 | cazmax
+---
+
+Stage 7.2 reconstructs one benchmark method at the exact retained-cell counts
+required by completed Stage 6 curves. `resume` preserves compatible lookups and
+builds only missing counts. `restart` deliberately deletes and rebuilds only
+the selected method library.
+
+```{r setup, message=FALSE, warning=FALSE}
+source(file.path("R", "stage72_workflow.R"))
+rmd_options <- project_rmd_params("7.2_build_rank_lut.Rmd")
+configured <- rmd_project_config(rmd_options, "stage72")
+rmd_params <- configured$params
+config <- stage72_lookup_config(rmd_params)
+target_plan <- stage72_target_plan(config)
+```
+
+```{r inspect}
+stage72_readiness <- inspect_stage72(config, target_plan)
+print(stage72_readiness)
+```
+
+```{r lookup-library, message=TRUE, warning=FALSE}
+if (config$mode %in% c("resume", "restart")) {
+  stage72_lookup_status <- run_stage72(config, target_plan)
+  print(as.data.frame(stage72_lookup_status[setdiff(
+    names(stage72_lookup_status), "counters"
+  )]))
+}
+```
+
+```{r artifact-summary}
+stage72_index <- benchmark_library_index(config, target_plan, validate = TRUE)
+print(stage72_index)
+cat("Runtime log:", config$paths$reconstruction_log, "\n")
+```

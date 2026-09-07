@@ -1,0 +1,84 @@
+schema_version: 1
+
+demography:
+  bird_sigma_separate_intercepts: [VertFishScav]
+  seed: 123
+  n_chains: 3
+  n_adapt: 5000
+  n_iter: 5000
+  thin: 10
+  coefficient_prior_mean: 0
+  coefficient_prior_sd: 100
+  residual_sd_min: 0.01
+  residual_sd_max: 5
+  rhat_max: 1.01
+  ess_min: 400
+  trait_grid_points: 31
+  mammal_mass_min_g: 2
+  mammal_mass_max_g: 4750000
+
+persistence:
+  demographic_uncertainty: coefficients_only
+  curves: [q50, q16, q025, q84, q975]
+  persistence_horizon_years: 1000
+  quasi_extinction_abundance: 500
+  population_cap_factor: 1.1
+  growth_rate_buffer: 0.8
+  n_posterior_draws: 1500
+  replicates_per_draw: 2500
+  posterior_chunk_size: 25
+  base_seed: 123
+  anchor_probabilities: [0.025, 0.16, 0.50, 0.84, 0.975]
+  persistence_grid_min: 0.025
+  persistence_grid_max: 0.975
+  persistence_grid_step: 0.025
+  additional_persistence_probabilities: [0.99]
+  k_search_start: null
+  k_search_relative_tolerance: 0.01
+  k_search_max: 1.0e13
+  k_rounding: round
+  loess_span: 0.5
+
+application:
+  application: madagascar
+  minimum_patch_abundance: 10
+  taxa: both
+  sdm: ppm_rangebag
+
+inputs:
+  mammal_rmax_file: Data/Raw/mammal_rmax.txt
+  sigma_file: Data/Raw/sigma.csv
+  bird_growth_file: Data/Raw/bird_growth_niel_lebreton.csv
+  mammal_traits_file: Data/Raw/mammal_data.txt
+  bird_traits_file: Data/Raw/bird_data.txt
+  bird_generation_lengths_file: Data/Raw/cobi13486-sup-0004-tables4.xlsx
+  iucn_bird_synonyms_file: Data/Raw/iucn_bird_synonyms.csv
+  species_list_file: Data/Raw/simple_summary.csv
+  synonyms_file: Data/Raw/synonyms.csv
+  curated_synonyms_file: Data/Raw/input_synonyms.csv
+  random_effects_file: Data/Raw/random_effects.csv
+  landcover_file: Data/Raw/esacci_2022_pfts.tif
+  sdm_parent_dir: "."
+  sdm_index_file: null
+  zonation_settings_template: Data/Raw/settings.z5.txt
+
+spatial:
+  study_area_mode: bounds
+  study_area_file: null
+  study_area_layer: null
+  roi_xmin: 43.18
+  roi_xmax: 50.56
+  roi_ymin: -25.64
+  roi_ymax: -11.89
+
+priority:
+  cells_to_remove_per_iteration: 1000
+  pruning_iterations_per_stage: 50
+
+reporting:
+  late_stage_removal_percentages: [90, 95, 99]
+  persistence_threshold: 0.75
+  focal_species: [Pterocles personatus, Galidia elegans]
+  assemblage_point_style: solid
+  focal_point_style: none
+  assemblage_central_stat: mean

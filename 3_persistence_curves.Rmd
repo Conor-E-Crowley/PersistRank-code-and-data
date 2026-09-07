@@ -1,0 +1,43 @@
+---
+title: "Stage 3 — Persistence curves"
+output: html_document
+params:
+  config_file: "config/madagascar.yml"
+  mode: "reuse"
+  write_figures: true
+---
+
+```{r run, message=TRUE, warning=FALSE}
+source(file.path("R", "stage3_workflow.R"))
+rmd_options <- project_rmd_params("3_persistence_curves.Rmd")
+configured <- rmd_project_config(rmd_options, "stage3")
+rmd_params <- configured$params
+model_paths <- persistence_model_paths(
+  quasi_extinction_abundance = rmd_params$quasi_extinction_abundance,
+  persistence_horizon_years = rmd_params$persistence_horizon_years
+)
+config <- stage3_config(list(
+                          mode = rmd_params$mode,
+                          taxa = "both", # fit both branches for application reuse
+                          write_figures = rmd_params$write_figures,
+                          loess_span = rmd_params$loess_span
+                        ),
+                        paths = model_paths$project)
+stage3_result <- run_stage3_model(config, model_paths)
+```
+
+## Inputs
+
+```{r inputs, echo=FALSE}
+print(knitr::kable(stage3_result$input_summary, row.names = FALSE))
+cat("Model:", stage3_result$model, "\n")
+cat("Simulation horizon:", stage3_result$persistence_horizon_years, "years\n")
+cat("Quasi-extinction abundance:", stage3_result$quasi_extinction_abundance, "\n")
+cat("Elapsed seconds:", sprintf("%.1f", stage3_result$elapsed_seconds), "\n")
+```
+
+## Figures
+
+```{r figures, echo=FALSE}
+knitr::include_graphics(stage3_result$figures[file.exists(stage3_result$figures)])
+```

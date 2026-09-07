@@ -1,0 +1,48 @@
+---
+title: "Stage 4 — Species table"
+output: html_document
+params:
+  config_file: "config/madagascar.yml"
+  mode: "figure"                 # figure | build
+  verbose: false
+  iucn_mode: "cache_or_query"    # cache_only | cache_or_query | refresh
+  iucn_pause_seconds: 2
+---
+
+```{r run, message=TRUE, warning=FALSE}
+source(file.path("R", "stage4_workflow.R"))
+rmd_options <- project_rmd_params("4_build_species_table.Rmd")
+configured <- rmd_project_config(rmd_options, "stage4")
+rmd_params <- configured$params
+context <- application_rmd_stage4_context(rmd_params)
+prepared <- if (identical(rmd_params$mode, "build")) {
+  prepare_application_rmd_stage4(context)
+} else list(frozen_inputs = NULL)
+frozen <- prepared$frozen_inputs
+config <- stage4_application_config(
+  rmd_params, context, frozen_inputs = frozen,
+  iucn_mode = if (is.null(frozen)) rmd_params$iucn_mode else "cache_only"
+)
+describe_stage4_config(config)
+stage4_result <- run_stage4(config)
+if (identical(rmd_params$mode, "build")) {
+  if (is.null(frozen)) {
+    frozen <- write_application_inputs(context, stage4_result$habitat_rows)
+  }
+  application_commit_boundary(
+    context, application_stage4_boundary(stage4_result, context)
+  )
+}
+```
+
+```{r summary, echo=FALSE}
+if (!is.null(stage4_result$class_counts)) {
+  print(knitr::kable(stage4_result$class_counts, row.names = FALSE))
+}
+cat("Action:", stage4_result$action, "\n")
+cat("Rows:", stage4_result$rows, "\n")
+cat("Elapsed seconds:", sprintf("%.1f", stage4_result$elapsed_seconds), "\n")
+if (!is.null(stage4_result$figure) && file.exists(stage4_result$figure)) {
+  print(knitr::include_graphics(stage4_result$figure))
+}
+```

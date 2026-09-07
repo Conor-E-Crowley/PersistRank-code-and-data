@@ -1,0 +1,150 @@
+---
+title: "Stage 7.1 — Priority results"
+output: html_document
+params:
+  config_file: "config/madagascar.yml"
+  curve: "q50"                # q025 | q16 | q50 | q84 | q975
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+# Stage 7.1 is a deterministic reporting stage. It identifies one completed
+# Stage 6 run, reconstructs its ecological states, validates its removal
+# surface, and atomically regenerates the associated table and figures.
+source(file.path("R", "stage71_workflow.R"))
+
+rmd_options <- project_rmd_params("7.1_stage_meta_and_priority_surface.Rmd")
+configured <- rmd_project_config(rmd_options, "stage71")
+rmd_params <- configured$params
+context <- application_rmd_context(
+  rmd_params, require_application = TRUE, require_scenario = TRUE
+)
+config <- stage71_application_config(rmd_params, context)
+log_stage7_config(config)
+```
+
+## Reconstruct and validate the priority results
+
+Stage zero is read from the shared Stage 6 initialization. Every positive stage is read from
+its corresponding patch lookup. Persistence is not interpolated between
+completed stages. The same spatial states are also evaluated under all five
+demographic coefficient sets.
+
+```{r calculate}
+result <- run_stage71(config)
+application_commit_boundary(
+  context, application_stage71_boundary(config, result)
+)
+report_tables <- stage71_report_tables(result)
+```
+
+## Assemblage summaries
+
+```{r persistence-overview, echo=FALSE}
+assert(
+  exists("result"),
+  "Run the Stage 7.1 calculation chunk before displaying its report."
+)
+
+state_summary <- report_tables$state_summary
+print(knitr::kable(state_summary, digits = 4, row.names = FALSE))
+```
+
+## Species summaries
+
+### Largest initial-to-latest persistence losses
+
+```{r largest-losses, echo=FALSE}
+largest_losses <- report_tables$largest_losses
+print(knitr::kable(largest_losses, digits = 4, row.names = FALSE))
+```
+
+### Smallest area under the persistence trajectory
+
+The raw AUC integrates persistence against the percentage of initially alive
+cells removed. The normalized AUC divides by the observed removal span and
+lies in `[0,1]`.
+
+```{r smallest-auc, echo=FALSE}
+smallest_auc <- report_tables$smallest_auc
+print(knitr::kable(smallest_auc, digits = 4, row.names = FALSE))
+```
+
+### Lowest persistence at the latest completed stage
+
+```{r lowest-latest, echo=FALSE}
+lowest_latest <- report_tables$lowest_latest
+print(knitr::kable(lowest_latest, digits = 4, row.names = FALSE))
+```
+
+### Species with no surviving population unit
+
+```{r species-without-pus, echo=FALSE}
+without_pus <- report_tables$without_pus
+if (nrow(without_pus)) {
+  print(knitr::kable(without_pus, digits = 4, row.names = FALSE))
+} else {
+  cat("none\n")
+}
+```
+
+## Supplementary figures
+
+### Assemblage persistence
+
+```{r community-trajectory, echo=FALSE, out.width='100%'}
+print(knitr::include_graphics(
+  result$outputs[["pipeline_persistence"]]
+))
+```
+
+### Demographic-curve uncertainty
+
+```{r mean-curve-uncertainty, echo=FALSE, out.width='100%'}
+print(knitr::include_graphics(
+  result$outputs[["curve_uncertainty"]]
+))
+```
+
+### Species persistence
+
+```{r species-heatmap, echo=FALSE, out.width='100%'}
+print(knitr::include_graphics(
+  result$outputs[["species_persistence"]]
+))
+```
+
+## Continuous cell-removal order
+
+Lower values identify cells removed earlier; higher values identify cells
+retained longer. The map is built only after the integer removal raster,
+continuous rank map, event table, and initial Stage 6 domain have been shown
+to agree.
+
+```{r removal-order-map, echo=FALSE, out.width='70%'}
+print(knitr::include_graphics(
+  result$outputs[["cell_removal_order"]]
+))
+```
+
+## Final summary
+
+```{r summary, echo=FALSE}
+cat("Run ID: ", config$run_id, "\n", sep = "")
+cat("Primary persistence curve: ", config$curve, "\n", sep = "")
+cat("Ecological states: ", nrow(result$stage_meta), "\n", sep = "")
+cat(
+  "Retained species: ",
+  data.table::uniqueN(result$persistence$species$species),
+  "\n",
+  sep = ""
+)
+cat(
+  "Ranked cells: ",
+  format(result$surface$n_ranked, big.mark = ","),
+  "\n",
+  sep = ""
+)
+cat("Outputs:\n")
+cat(paste0("  - ", unname(result$outputs)), sep = "\n")
+cat("\nElapsed seconds: ", sprintf("%.1f", result$elapsed), "\n", sep = "")
+```

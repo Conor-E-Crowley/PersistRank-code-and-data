@@ -1,0 +1,147 @@
+---
+title: "Stage 7.3 — Persistence comparison"
+output: html_document
+
+params:
+  config_file: "config/madagascar.yml"
+  mode: "inspect"             # inspect | report
+  main_curve: "q50"
+  rank_method: "abf"          # abf | caz1 | caz2 | cazmax
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+# Stage 7.3 compares one completed Stage 6 trajectory with the corresponding
+# Stage 7.2 benchmark lookup sequence. Paths are derived from the selected
+# application, threshold, removal schedule, curve, and benchmark.
+source(file.path("R", "stage73_workflow.R"))
+
+rmd_options <- project_rmd_params("7.3_persist_cmp.Rmd")
+configured <- rmd_project_config(rmd_options, "stage73")
+rmd_params <- configured$params
+config <- stage73_application_config(rmd_params)
+```
+
+## Configuration and artifact status
+
+`inspect` reports paths without opening scientific objects or writing files.
+Active modes regenerate the inexpensive comparison from pipeline states and
+the exact retained-cell benchmark lookup library.
+
+```{r inspect}
+if (identical(config$mode, "inspect")) {
+  inspection <- inspect_stage73(config)
+  print(inspection)
+}
+```
+
+## Calculate the comparison
+
+The persistence-based and benchmark methods use corresponding completed stage
+numbers. All retained species remain in the denominator at every stage;
+species absent from a spatial state receive persistence zero.
+
+```{r calculate}
+if (!identical(config$mode, "inspect")) {
+  result <- run_stage73(config)
+}
+```
+
+## Seven-panel persistence comparison
+
+Panel `(a)` summarizes the assemblage over the complete removal sequence.
+Panels `(b)`–`(g)` show persistence, retained population-unit composition, and
+the persistence–area relationship for the two configured focal species.
+
+```{r combined-figure, echo=FALSE, out.width='100%'}
+if (!identical(config$mode, "inspect")) {
+  assert(exists("result"), "Run the calculation chunk before displaying the figure.")
+  print(knitr::include_graphics(result$figure_path))
+}
+```
+
+## Key comparison metrics
+
+### Species below the persistence threshold at late-stage checkpoints
+
+Classification uses strict
+\(S < `r config$persistence_threshold`\). Each target uses the completed
+ecological stage nearest 90%, 95%, or 99% removal.
+
+```{r metrics-late-stage, echo=FALSE}
+if (!identical(config$mode, "inspect")) {
+  print(knitr::kable(
+    result$report_tables$late_stage_threshold,
+    digits = c(1, 1, 0, 0, 0, 0, 0, 0),
+    align = "rrrrrrrr"
+  ))
+}
+```
+
+### Species favoring each method
+
+The removal-sequence comparison integrates the persistence difference over
+the complete cell-removal axis. The retained-area comparison integrates over
+each species' shared retained-PU-area support.
+
+```{r metrics-favoring, echo=FALSE}
+if (!identical(config$mode, "inspect")) {
+  print(knitr::kable(
+    result$report_tables$favoring_by_scope,
+    digits = c(NA, NA, 0, 0, 1, 0, 1, 0, 1, 1),
+    align = "llrrrrrrrr"
+  ))
+}
+```
+
+### Three largest positive sequence-averaged differences
+
+```{r metrics-top3, echo=FALSE}
+if (!identical(config$mode, "inspect")) {
+  print(knitr::kable(
+    result$report_tables$top3_positive,
+    digits = c(0, NA, NA, 3, 3, 1),
+    align = "rllrrr"
+  ))
+}
+```
+
+### Sensitivity across the five persistence functions
+
+The same spatial states are evaluated with q2.5, q16, q50, q84, and q97.5
+coefficient pairs. The first table summarizes checkpoint directions; the
+second summarizes species-level direction stability across the five curves.
+
+```{r metrics-sensitivity-checkpoints, echo=FALSE}
+if (!identical(config$mode, "inspect") &&
+    nrow(result$report_tables$sensitivity_checkpoints)) {
+  print(knitr::kable(
+    result$report_tables$sensitivity_checkpoints,
+    digits = c(1, 1, 3, 0, 0, NA),
+    align = "rrrrrl"
+  ))
+}
+```
+
+```{r metrics-sensitivity-stability, echo=FALSE}
+if (!identical(config$mode, "inspect") &&
+    nrow(result$report_tables$sensitivity_stability)) {
+  print(knitr::kable(
+    result$report_tables$sensitivity_stability,
+    digits = c(NA, 0),
+    align = "lr"
+  ))
+}
+```
+
+## Output summary
+
+```{r summary, echo=FALSE}
+if (!identical(config$mode, "inspect")) {
+  cat("Run ID: ", config$run_id, "\n", sep = "")
+  cat("Benchmark: ", config$rank_label, "\n", sep = "")
+  cat("Benchmark lookup directory: ", config$paths$lookup_library$lookups, "\n", sep = "")
+  cat("Persistence threshold: ", config$persistence_threshold, "\n", sep = "")
+  cat("Focal species: ", paste(config$focal_species, collapse = "; "), "\n", sep = "")
+  cat("Combined figure: ", result$figure_path, "\n", sep = "")
+}
+```

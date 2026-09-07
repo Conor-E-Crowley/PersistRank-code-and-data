@@ -1,0 +1,78 @@
+---
+title: "Stage 5.2 — Zonation inputs"
+output: html_document
+params:
+  config_file: "config/madagascar.yml"
+  mode: "inspect"              # inspect | inputs | feature_list
+---
+
+## 1. Configuration and preflight
+
+```{r setup, message=TRUE, warning=FALSE}
+source(file.path("R", "stage52_workflow.R"))
+rmd_options <- project_rmd_params("5.2_build_binary_patch_rasters_zonation_feature_list.Rmd")
+configured <- rmd_project_config(rmd_options, "stage52")
+rmd_params <- configured$params
+context <- application_rmd_context(rmd_params)
+config <- stage52_application_config(rmd_params, context)
+describe_stage52_config(config)
+```
+
+## 2. Validate inputs
+
+`inputs` uses the current patch lookup and patch rasters to rebuild the
+complete binary feature set. `feature_list` treats the top-level TIFFs already
+in `Patches_binary` as authoritative and refreshes only the feature list and
+its derived Zonation settings file. `inspect` reports status without reading
+raster values.
+
+## 3. Run selected operation
+
+```{r build_zonation_inputs, message=TRUE}
+if (identical(config$mode, "inspect")) {
+  stage52_status <- inspect_stage52(config)
+  print(stage52_status)
+} else {
+  stage52_result <- run_stage52(config)
+  # Only the full input build is a durable pipeline boundary. The lightweight
+  # path refresh must not alter the application recovery state.
+  if (identical(config$mode, "inputs")) {
+    application_commit_boundary(
+      context, application_stage52_boundary(config, stage52_result)
+    )
+  }
+}
+```
+
+## 4. Commit outputs
+
+`inputs` commits the feature list and settings file with its rebuilt binary
+rasters. `feature_list` atomically replaces only those two text files.
+Completed Zonation rank maps remain in their method output directories and are
+read there by Stage 7.2.
+
+## 5. Summary
+
+```{r summary, message=TRUE}
+if (identical(config$mode, "inspect")) {
+  log_msg(
+    "Stage 5.2 | inspection complete | available=",
+    sum(stage52_status$exists), "/", nrow(stage52_status),
+    "| files_written=none"
+  )
+} else if (identical(config$mode, "inputs")) {
+  log_msg(
+    "Stage 5.2 | outputs | binary_rasters=", length(stage52_result$binary_paths),
+    "| method_dirs=", length(stage52_result$method_dirs),
+    "| feature_list=", stage52_result$feature_list,
+    "| settings=", stage52_result$settings_file
+  )
+} else {
+  log_msg(
+    "Stage 5.2 | outputs | features=", stage52_result$feature_count,
+    "| binary_rasters_written=0",
+    "| feature_list=", stage52_result$feature_list,
+    "| settings=", stage52_result$settings_file
+  )
+}
+```

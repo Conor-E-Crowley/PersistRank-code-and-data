@@ -1,0 +1,100 @@
+---
+title: "Stage 5.3 — Initial persistence"
+output: html_document
+params:
+  config_file: "config/madagascar.yml"
+  curve: "q50"                 # q025 | q16 | q50 | q84 | q975
+---
+
+```{r setup, message=TRUE, warning=FALSE}
+source(file.path("R", "stage53_workflow.R"))
+rmd_options <- project_rmd_params("5.3_initial_species_persistence.Rmd")
+configured <- rmd_project_config(rmd_options, "stage53")
+rmd_params <- configured$params
+context <- application_rmd_context(rmd_params)
+config <- stage53_application_config(rmd_params, context)
+describe_stage53_config(config)
+
+initial_report <- run_stage53(config)
+application_commit_boundary(
+  context, application_stage53_boundary(config, initial_report)
+)
+application_finalize_scenario(context, require_complete = FALSE)
+```
+
+## Interpretation
+
+This report describes the selected taxa in the final Stage 5 landscape before
+Stage 6 removes any cells. Population-unit persistence uses the selected
+shifted-Gompertz curve. The tables are displayed during interactive chunk
+execution and knitting; the report also writes the corresponding SI figure.
+Species persistence is `1 - product(1 - P(PU))`, treating population-unit
+extinction outcomes as independent. Species without a retained Stage 5
+population unit are coverage gaps and are not assigned persistence zero.
+
+## Analysis coverage
+
+```{r coverage, echo=FALSE}
+print(knitr::kable(initial_report$coverage, digits = c(NA, 0, 0, 0, 1),
+                   caption = "Selected and Stage 5-represented species."))
+if (nrow(initial_report$absent_species)) {
+  print(knitr::kable(
+    utils::head(initial_report$absent_species, 10L),
+    caption = "Selected species without retained Stage 5 population units."
+  ))
+}
+```
+
+## Population-unit summary
+
+```{r pu_summary, echo=FALSE}
+print(knitr::kable(initial_report$pu_summary, digits = 3,
+                   caption = "Initial population-unit area and persistence statistics."))
+```
+
+## Species summary
+
+```{r species_summary, echo=FALSE}
+print(knitr::kable(initial_report$species_summary, digits = 3,
+                   caption = "Initial species-level persistence statistics."))
+```
+
+## Area-persistence association
+
+Spearman correlations are descriptive because species differ in density,
+demographic parameters, and the distribution of area among population units.
+
+```{r correlations, echo=FALSE}
+print(knitr::kable(initial_report$correlations, digits = 4,
+                   caption = "Spearman association between retained PU area and species persistence."))
+```
+
+## Species extremes
+
+```{r species_extremes, echo=FALSE}
+print(knitr::kable(initial_report$ranked_species$lowest, digits = 4,
+                   caption = "Lowest-persistence species (up to 10)."))
+print(knitr::kable(initial_report$ranked_species$highest, digits = 4,
+                   caption = "Highest-persistence species (up to 10)."))
+```
+
+## Initial persistence figure
+
+In panel B, point color identifies taxon and point shape identifies the SDM
+branch used for each species (PPM or RangeBag).
+
+```{r initial_persistence_figure, echo=FALSE, fig.width=7.0, fig.height=3.4, dpi=300}
+print(initial_report$figure)
+```
+
+```{r summary, message=TRUE}
+log_msg(
+  "Stage 5.3 | curve=", initial_report$curve,
+  "| taxa=", initial_report$taxa,
+  "| represented_species=", nrow(initial_report$species),
+  "| population_units=", nrow(initial_report$pu),
+  "| median_species_persistence=",
+  signif(stats::median(initial_report$species$species_persistence), 4),
+  "| figure=", config$paths$figure
+)
+```

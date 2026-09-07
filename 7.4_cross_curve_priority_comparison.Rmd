@@ -1,0 +1,63 @@
+---
+title: "Stage 7.4 — Cross-curve persistence comparison"
+output: html_document
+
+params:
+  config_file: "config/madagascar.yml"
+  mode: "inspect"             # inspect | report
+  optimization_curves: null   # null = all completed Stage 6 curves
+  main_curve: "q50"
+  rank_method: "abf"          # abf | caz1 | caz2 | cazmax
+---
+
+Stage 7.4 is report-only. It requires a complete Stage 7.2 exact-target library
+and regenerates trajectories, statistics, and plain tables in memory. It never
+reads the rank raster, loads reconstruction kernels, or writes derived caches.
+
+```{r setup, message=FALSE, warning=FALSE}
+source(file.path("R", "stage74_workflow.R"))
+rmd_options <- project_rmd_params("7.4_cross_curve_priority_comparison.Rmd")
+configured <- rmd_project_config(rmd_options, "stage74")
+rmd_params <- configured$params
+config <- stage74_config(rmd_params)
+run_states <- read_completed_stage6_states(config)
+target_plan <- build_benchmark_target_plan(run_states)
+```
+
+```{r inspect}
+stage74_readiness <- inspect_benchmark_library(config, target_plan)
+print(stage74_readiness)
+```
+
+```{r results, message=TRUE, warning=FALSE}
+if (identical(config$mode, "report")) {
+  stage74_result <- run_stage74(config)
+}
+```
+
+```{r primary-results}
+if (identical(config$mode, "report")) {
+  require_chunk_object("stage74_result", "results")
+  print(stage74_result$report_tables$primary_late)
+  print(stage74_result$report_tables$primary_sequence)
+  print(stage74_result$report_tables$primary_area)
+}
+```
+
+```{r robustness-matrices}
+if (identical(config$mode, "report")) {
+  require_chunk_object("stage74_result", "results")
+  print(stage74_result$report_tables$robustness)
+  lapply(stage74_result$report_tables$late_matrices, print)
+  print(stage74_result$report_tables$sequence_mean)
+  print(stage74_result$report_tables$sequence_directions)
+  print(stage74_result$report_tables$area_mean)
+  print(stage74_result$report_tables$area_directions)
+  print(stage74_result$report_tables$stability)
+}
+```
+
+```{r artifact-summary}
+print(benchmark_library_index(config, target_plan, validate = FALSE))
+cat("Runtime log:", config$paths$report_log, "\n")
+```

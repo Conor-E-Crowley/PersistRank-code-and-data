@@ -1,0 +1,139 @@
+---
+title: "Stage 8 — Selective pipeline orchestration"
+output: html_document
+params:
+  config_file: "config/madagascar.yml"
+  # Run control. inspect never creates or changes analysis files.
+  mode: "resume"                   # inspect | resume | restart
+  # Core scientific work only. Add 5.1, 5.2, 5.3, or 7.1 explicitly when
+  # those explanatory, external-handoff, or reporting products are wanted.
+  stages:
+    value:
+      - "stage_2"
+      - "stage_3"
+      - "stage_4"
+      - "stage_5"
+      - "stage_5_1"
+      - "stage_5_3"
+      - "stage_6"
+      - "stage_7_1"
+  restart_from: null                 # null | stage_2 | stage_4 | stage_6
+  stage3_figures: true               # applies only when stage_3 is selected
+  process_figure_species: "Cryptoprocta ferox"
+                                     # required only when Stage 5.1 is selected
+
+  # Stage 5 clumping implementation. auto prefers fasterRaster/GRASS.
+  clump_backend: "fasterRaster"      # auto | fasterRaster | terra
+  grass_dir: null                    # null = environment/standard discovery
+
+  # Stage 6 runs once for each requested curve. q50 is shown when available.
+  priority_curves:
+    value: ["q025", "q16", "q50", "q84", "q975"]
+
+  threads: null
+
+  max_stages: .inf
+  checkpoint_every_stages: 1
+---
+
+## How to use this driver
+
+Use `inspect` first to see selected work, prerequisite handoffs, and completed
+artifacts. `stages` is literal: an omitted prerequisite is validated and reused,
+never executed automatically. Use `resume` for new or compatible work. With
+`restart`, set `restart_from` to one of the deliberately coarse, transactionally
+safe boundaries. A lean calculation without optional products can select
+Stages 2, 3, 4, 5, and 6 and set `stage3_figures: false`.
+
+## Configuration
+
+```{r configuration, message=TRUE, warning=FALSE}
+source(file.path("R", "stage8_workflow.R"))
+
+rmd_options <- project_rmd_params("8_run_pipeline.Rmd")
+configured <- rmd_project_config(rmd_options, "stage8")
+rmd_params <- configured$params
+config <- stage8_config(rmd_params)
+cat("Persistence model:", config$model$root, "\n")
+cat("Application scenario:", config$scenario$root, "\n")
+cat("Priority run:", config$scenario$run_root, "\n")
+print(knitr::kable(stage8_settings_table(config), row.names = FALSE))
+input_inspection <- inspect_project_config(configured$configuration)
+print(knitr::kable(input_inspection$inputs, row.names = FALSE))
+print(knitr::kable(input_inspection$sdm_directories, row.names = FALSE))
+```
+
+## Run or inspect
+
+`inspect` is read-only. `resume` validates completed boundaries and continues
+selected work. `restart` replaces only `restart_from`: the reusable persistence
+model and current scenario at `stage_2`, the current threshold scenario at
+`stage_4`, or the requested curve directories at `stage_6`.
+
+```{r run, message=TRUE, warning=FALSE}
+stage8_result <- run_stage8(config)
+```
+
+## Execution plan
+
+```{r plan, echo=FALSE}
+print(knitr::kable(stage8_result$plan, row.names = FALSE))
+```
+
+## Stage status
+
+```{r status, echo=FALSE}
+print(knitr::kable(stage8_result$status, row.names = FALSE))
+if (!isTRUE(stage8_result$complete) && !is.null(stage8_result$stop_reason)) {
+  cat("\n", stage8_result$stop_reason, "\n", sep = "")
+}
+```
+
+## Artifacts
+
+```{r artifacts, echo=FALSE}
+if (nrow(stage8_result$artifacts)) {
+  shown <- summarize_application_artifacts(stage8_result$artifacts)
+  shown$total_bytes <- format(shown$total_bytes, big.mark = ",", scientific = FALSE)
+  print(knitr::kable(shown, row.names = FALSE))
+  cat("\nThe complete file-level table is available as `stage8_result$artifacts`.\n")
+} else {
+  cat("No completed artifacts are recorded for this analysis.\n")
+}
+```
+
+## Initial persistence summary
+
+```{r stage53-summary, echo=FALSE}
+if (!is.null(stage8_result$stage53)) {
+  print(knitr::kable(stage8_result$stage53$coverage, digits = 2, row.names = FALSE))
+  print(knitr::kable(stage8_result$stage53$species_summary, digits = 3, row.names = FALSE))
+}
+```
+
+## Priority-result summary
+
+```{r stage71-summary, echo=FALSE}
+if (!is.null(stage8_result$stage71)) {
+  print(knitr::kable(stage8_result$stage71$initial, digits = 4, row.names = FALSE,
+                     caption = "Initial Stage 7.1 state."))
+  print(knitr::kable(stage8_result$stage71$latest, digits = 4, row.names = FALSE,
+                     caption = "Latest Stage 7.1 state."))
+  print(knitr::kable(stage8_result$stage71$lowest_auc, digits = 4, row.names = FALSE,
+                     caption = "Species with the lowest normalized persistence AUC."))
+}
+```
+
+## Generated figures
+
+```{r figures, echo=FALSE, fig.width=8, fig.height=6}
+figure_paths <- stage8_result$figures
+figure_paths <- figure_paths[file.exists(figure_paths)]
+if (length(figure_paths)) {
+  for (path in figure_paths) {
+    print(knitr::include_graphics(path))
+  }
+} else {
+  cat("No selected Stage 8 figures are available yet.\n")
+}
+```

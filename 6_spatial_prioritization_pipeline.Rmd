@@ -1,0 +1,133 @@
+---
+title: "Stage 6 — Spatial prioritization"
+output: html_document
+params:
+  config_file: "config/madagascar.yml"
+  mode: "inspect"             # inspect | initialize | run | resume
+  curve: "q50"                # q025 | q16 | q50 | q84 | q975
+  max_stages: 100             # positive integer | Inf
+
+  ecology_log_every_iterations: 10
+                               # positive integer | null disables
+  checkpoint_every_stages: 1  # positive integer | null disables
+  checkpoint_keep: 2
+  resume_stage: null          # null = latest retained checkpoint
+---
+
+```{r setup, message=TRUE, warning=FALSE}
+# Stage 6 consumes the immutable Stage 4–5 spatial artifacts and either builds
+# one shared prioritization initialization or runs the reverse-removal pipeline.
+# default inspect mode is read-only and deliberately avoids loading large
+# spatial objects or compiled kernels.
+if (requireNamespace("knitr", quietly = TRUE)) {
+  knitr::opts_chunk$set(message = TRUE, warning = FALSE)
+}
+
+source(file.path("R", "stage6_workflow.R"))
+
+rmd_options <- project_rmd_params("6_spatial_prioritization_pipeline.Rmd")
+configured <- rmd_project_config(rmd_options, "stage6")
+rmd_params <- configured$params
+stage6_started <- proc.time()[["elapsed"]]
+active <- !identical(rmd_params$mode, "inspect")
+context <- application_rmd_context(
+  rmd_params, require_application = active, require_scenario = active
+)
+stage6 <- stage6_application_config(rmd_params, context, active)
+describe_stage6_config(stage6)
+```
+
+## 1. Inspect, initialize, run, or resume
+
+Each render performs exactly one operation. Shared initialization is separate
+from prioritization so a long run starts in a fresh R session without retaining
+initialization-construction objects.
+
+```{r execute}
+state <- NULL
+if (stage6$mode %in% c("run", "resume")) {
+  state <- read_application_state(context)
+  validated <- application_reuse_boundary(
+    state,
+    application_scenario_shared_stages(),
+    context$base_paths$root
+  )
+  assert(
+    !is.null(validated),
+    "Stage 6 execution requires a valid shared initialization. Run initialize first."
+  )
+  state <- validated
+}
+
+stage6_result <- switch(
+  stage6$mode,
+  inspect = inspect_stage6(stage6),
+  initialize = build_stage6_initialization(stage6),
+  run = run_stage6(stage6, initialization_record_validated = TRUE),
+  resume = run_stage6(stage6, initialization_record_validated = TRUE)
+)
+
+if (identical(stage6$mode, "initialize")) {
+  state <- application_commit_boundary(
+    context,
+    application_stage6_initialization_boundary(stage6, stage6_result)
+  )
+  application_finalize_scenario(context, state)
+}
+if (stage6$mode %in% c("run", "resume")) {
+  boundary <- application_stage6_run_boundary(stage6, stage6_result)
+  if (!is.null(boundary)) {
+    state <- application_commit_boundary(context, boundary, state)
+    application_mark_curve_complete(context, stage6$curve, state)
+  }
+}
+
+if (identical(stage6$mode, "inspect")) {
+  print(stage6_result$artifacts, row.names = FALSE)
+  if (nrow(stage6_result$checkpoints)) {
+    print(stage6_result$checkpoints, row.names = FALSE)
+  } else {
+    cat("No retained checkpoints.\n")
+  }
+}
+```
+
+## 2. Final summary
+
+```{r summary, echo=FALSE}
+cat("\nStage 6 summary\n")
+cat("===============\n")
+cat("Mode: ", stage6$mode, "\n", sep = "")
+cat(
+  "Curve: ", stage6$curve,
+  " | Taxa: ", stage6$taxa,
+  " | SDM: ", stage6$sdm, "\n",
+  sep = ""
+)
+cat("Shared initialization: ", stage6$paths$initialization_bundle, "\n", sep = "")
+
+if (identical(stage6$mode, "initialize")) {
+  cat("Species: ", stage6_result$retained_species, "\n", sep = "")
+  cat("Patches: ", stage6_result$patch_count, "\n", sep = "")
+  cat("Population units: ", stage6_result$pu_count, "\n", sep = "")
+}
+
+if (stage6$mode %in% c("run", "resume")) {
+  result <- stage6_result$priority_pipeline_result
+  cat("Run directory: ", stage6_result$pipeline_output_dir, "\n", sep = "")
+  cat("Completed stages: ", result$completed_stages, "\n", sep = "")
+  cat("Removal events: ", result$removal_events_path, "\n", sep = "")
+  cat("Removal raster: ", result$removal_order_path, "\n", sep = "")
+  cat("Rank map: ", result$rankmap_path, "\n", sep = "")
+}
+if (stage6$mode %in% c("initialize", "run", "resume")) {
+  cat("Runtime log: ", stage6_result$runtime_log_path, "\n", sep = "")
+}
+
+cat(
+  "Elapsed: ",
+  sprintf("%.1f seconds", proc.time()[["elapsed"]] - stage6_started),
+  "\n",
+  sep = ""
+)
+```

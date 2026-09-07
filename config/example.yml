@@ -1,0 +1,87 @@
+# Copy this file, replace every example input, and select it with config_file in
+# a numbered Rmd. Scientific defaults mirror the Madagascar configuration so
+# differences are explicit rather than inherited from hidden code defaults.
+schema_version: 1
+
+demography:
+  bird_sigma_separate_intercepts: [VertFishScav]
+  seed: 123
+  n_chains: 3
+  n_adapt: 5000
+  n_iter: 5000
+  thin: 10
+  coefficient_prior_mean: 0
+  coefficient_prior_sd: 100
+  residual_sd_min: 0.01
+  residual_sd_max: 5
+  rhat_max: 1.01
+  ess_min: 400
+  trait_grid_points: 31
+  mammal_mass_min_g: 2
+  mammal_mass_max_g: 4750000
+
+persistence:
+  demographic_uncertainty: coefficients_only
+  curves: [q50, q16, q025, q84, q975]
+  persistence_horizon_years: 1000
+  quasi_extinction_abundance: 500
+  population_cap_factor: 1.1
+  growth_rate_buffer: 0.8
+  n_posterior_draws: 1500
+  replicates_per_draw: 2500
+  posterior_chunk_size: 25
+  base_seed: 123
+  anchor_probabilities: [0.025, 0.16, 0.50, 0.84, 0.975]
+  persistence_grid_min: 0.025
+  persistence_grid_max: 0.975
+  persistence_grid_step: 0.025
+  additional_persistence_probabilities: [0.99]
+  k_search_start: null
+  k_search_relative_tolerance: 0.01
+  k_search_max: 1.0e13
+  k_rounding: round
+  loess_span: 0.5
+
+application:
+  application: example
+  minimum_patch_abundance: 10
+  taxa: both
+  sdm: ppm_rangebag
+
+inputs:
+  mammal_rmax_file: inputs/mammal_rmax.tsv
+  sigma_file: inputs/environmental_variation.csv
+  bird_growth_file: inputs/bird_growth.csv
+  mammal_traits_file: inputs/mammal_traits.tsv
+  bird_traits_file: inputs/bird_traits.tsv
+  bird_generation_lengths_file: inputs/bird_generation_lengths.xlsx
+  iucn_bird_synonyms_file: inputs/iucn_bird_synonyms.csv
+  species_list_file: inputs/species.csv
+  synonyms_file: inputs/synonyms.csv
+  curated_synonyms_file: inputs/curated_synonyms.csv
+  random_effects_file: inputs/random_effects.csv
+  landcover_file: inputs/landcover.tif
+  sdm_parent_dir: inputs/sdms
+  sdm_index_file: inputs/sdm_index.csv
+  zonation_settings_template: inputs/settings.z5.txt
+
+spatial:
+  study_area_mode: vector
+  study_area_file: inputs/study_area.gpkg
+  study_area_layer: null
+  roi_xmin: -180
+  roi_xmax: 180
+  roi_ymin: -90
+  roi_ymax: 90
+
+priority:
+  cells_to_remove_per_iteration: 1000
+  pruning_iterations_per_stage: 50
+
+reporting:
+  late_stage_removal_percentages: [90, 95, 99]
+  persistence_threshold: 0.75
+  focal_species: [Genus species_one, Genus species_two]
+  assemblage_point_style: solid
+  focal_point_style: none
+  assemblage_central_stat: mean

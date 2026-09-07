@@ -1,0 +1,31 @@
+---
+title: "Stage 5.1 — Spatial-process figure"
+output: html_document
+params:
+  config_file: "config/madagascar.yml"
+  process_figure_species: "Cryptoprocta ferox" # null skips this stage
+  clump_backend: "auto"
+  grass_dir: null
+---
+
+```{r run, message=TRUE, warning=FALSE}
+source(file.path("R", "stage51_workflow.R"))
+rmd_options <- project_rmd_params("5.1_single_species_aoh_patches_pu_process.Rmd")
+configured <- rmd_project_config(rmd_options, "stage51")
+rmd_params <- configured$params
+context <- application_rmd_context(rmd_params)
+validate_application_rmd_spatial_inputs(context, rmd_params)
+config <- stage51_application_config(rmd_params, context)
+describe_stage5_config(config, "Stage 5.1")
+stage51_result <- run_stage51(config)
+application_commit_boundary(
+  context, application_stage51_boundary(config, stage51_result)
+)
+```
+
+```{r summary, echo=FALSE}
+print(as.data.frame(stage51_result[setdiff(names(stage51_result), "figure")]))
+if (length(stage51_result$figure) && file.exists(stage51_result$figure)) {
+  print(knitr::include_graphics(stage51_result$figure))
+}
+```

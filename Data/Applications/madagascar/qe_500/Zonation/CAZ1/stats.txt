@@ -1,0 +1,23 @@
+Arguments given: --gui --mode=CAZ1 Data/Applications/madagascar/qe_500/Zonation/settings.z5.txt Data/Applications/madagascar/qe_500/Zonation/CAZ1
+Settings filename: Data/Applications/madagascar/qe_500/Zonation/settings.z5.txt
+Feature list filename: Data\Applications\madagascar\qe_500\Zonation\feature_list.txt
+Map dimensions (width * height): 2658*4951
+Number of grid cells in map (width * height): 13159758
+Number of grid cells in map with data: 2129706
+Input feature layer count: 188
+Feature layer count: 188
+Positive weight feature count: 188
+Negative weight feature count: 0
+Zero weight feature count: 0
+Total number of pixels with data across features: 87483804
+Mean feature extent across study area: 100.00%
+Memory usage of feature data: 247.79MB
+Mean quantization error: 0.0%
+Time used to read and preprocess layer data: 5m4s
+Time used in prioritization: 3m3s
+Number of iterations: 44
+Final convergence level: 0.00974675%
+Area under curve: 0.759287
+Total time used: 8m9s
+Number of errors: 0
+Number of warnings: 0

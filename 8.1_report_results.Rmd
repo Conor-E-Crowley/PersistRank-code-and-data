@@ -1,0 +1,115 @@
+---
+title: "Stage 8.1 — Multi-benchmark persistence results"
+output: html_document
+
+params:
+  config_file: "config/madagascar.yml"
+  mode: "resume"                   # inspect | resume
+  optimization_curves: null         # null = all completed Stage 6 curves
+  main_curve: "q50"
+---
+
+Stage 8.1 compares the prioritization pipeline with ABF, CAZ1, CAZ2, and
+CAZMAX. Run chunks directly; knitting is not required. In a fresh session,
+`setup → results` regenerates all tables from complete exact-target libraries
+without invoking spatial reconstruction.
+
+```{r setup, message=FALSE, warning=FALSE}
+source(file.path("R", "stage81_workflow.R"))
+rmd_options <- project_rmd_params("8.1_report_results.Rmd")
+configured <- rmd_project_config(rmd_options, "stage81")
+rmd_params <- configured$params
+config <- stage81_config(rmd_params)
+stage81_plan <- stage81_target_plan(config)
+```
+
+```{r inspect}
+stage81_readiness <- inspect_stage81(config, stage81_plan)
+print(stage81_readiness)
+```
+
+```{r lookup-libraries, message=TRUE, warning=FALSE}
+if (identical(config$mode, "resume")) {
+  stage81_lookup_status <- resume_stage81_lookups(config, stage81_plan)
+  print(stage81_lookup_status)
+}
+```
+
+```{r results, message=TRUE, warning=FALSE}
+if (identical(config$mode, "resume")) {
+  stage81_results <- build_stage81_results(config, stage81_plan)
+}
+```
+
+```{r cross-benchmark-summary}
+if (identical(config$mode, "resume")) {
+  require_chunk_object("stage81_results", "results")
+  print(stage81_results$cross_benchmark$late)
+  print(stage81_results$cross_benchmark$sequence)
+  print(stage81_results$cross_benchmark$retained_area)
+}
+```
+
+```{r late-stage-results}
+if (identical(config$mode, "resume")) {
+  require_chunk_object("stage81_results", "results")
+  lapply(stage81_results$methods, function(result) {
+    print(result$report_tables$primary_late)
+    invisible(NULL)
+  })
+}
+```
+
+```{r sequence-results}
+if (identical(config$mode, "resume")) {
+  require_chunk_object("stage81_results", "results")
+  lapply(stage81_results$methods, function(result) {
+    print(result$report_tables$primary_sequence)
+    invisible(NULL)
+  })
+}
+```
+
+```{r retained-area-results}
+if (identical(config$mode, "resume")) {
+  require_chunk_object("stage81_results", "results")
+  lapply(stage81_results$methods, function(result) {
+    print(result$report_tables$primary_area)
+    invisible(NULL)
+  })
+}
+```
+
+```{r robustness-matrices}
+if (identical(config$mode, "resume")) {
+  require_chunk_object("stage81_results", "results")
+  lapply(stage81_results$methods, function(result) {
+    print(result$report_tables$robustness)
+    lapply(result$report_tables$late_matrices, print)
+    print(result$report_tables$sequence_mean)
+    print(result$report_tables$sequence_directions)
+    print(result$report_tables$area_mean)
+    print(result$report_tables$area_directions)
+    print(result$report_tables$stability)
+    invisible(NULL)
+  })
+}
+```
+
+```{r main-figure, message=TRUE, warning=FALSE}
+if (identical(config$mode, "resume")) {
+  stage81_figure <- build_stage81_figure(config, stage81_plan)
+  print(stage81_figure$focal_results)
+  print(stage81_figure$figure_path)
+}
+```
+
+```{r artifact-summary}
+stage81_artifacts <- stage81_artifact_summary(
+  config, stage81_plan,
+  if (exists("stage81_figure")) stage81_figure else NULL
+)
+print(stage81_artifacts$lookups)
+print(stage81_artifacts$runtime_logs)
+print(stage81_artifacts$figure)
+```
